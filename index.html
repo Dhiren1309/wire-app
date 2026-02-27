@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wire Calculator Pro</title>
+
+<style>
+body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+    background:#111;
+    color:white;
+}
+.header{
+    background:#000;
+    padding:15px;
+    text-align:center;
+    font-size:20px;
+    font-weight:bold;
+    color:#f5a623;
+}
+.tabs{
+    display:flex;
+}
+.tab{
+    flex:1;
+    text-align:center;
+    padding:12px;
+    background:#1a1a1a;
+    cursor:pointer;
+}
+.tab.active{
+    background:#f5a623;
+    color:black;
+    font-weight:bold;
+}
+.section{
+    padding:15px;
+}
+input,select{
+    width:100%;
+    padding:10px;
+    margin-bottom:10px;
+    border-radius:8px;
+    border:none;
+    background:#000;
+    color:white;
+}
+.card{
+    background:#1a1a1a;
+    padding:15px;
+    border-radius:12px;
+    margin-bottom:15px;
+}
+button{
+    width:100%;
+    padding:12px;
+    border:none;
+    border-radius:8px;
+    background:#f5a623;
+    color:black;
+    font-weight:bold;
+}
+.small{
+    font-size:13px;
+    color:#aaa;
+}
+.hidden{display:none;}
+.saved-item{
+    background:#222;
+    padding:10px;
+    border-radius:8px;
+    margin-bottom:8px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">⚡ Wire Calculator – Pro</div>
+
+<div class="tabs">
+<div class="tab active" onclick="showTab('calc')">Calculator</div>
+<div class="tab" onclick="showTab('reverse')">Reverse PVC</div>
+<div class="tab" onclick="showTab('saved')">Saved</div>
+</div>
+
+<!-- ================= CALCULATOR TAB ================= -->
+
+<div id="calc" class="section">
+
+<div class="card">
+<label>Metal Type</label>
+<select id="metalType" onchange="updateMetalUI();calculate();">
+<option>Copper</option>
+<option>Aluminium</option>
+<option>CCS</option>
+<option>CCI</option>
+<option>Copper + CCS</option>
+<option>Copper + CCI</option>
+</select>
+
+<label>PVC Type</label>
+<select id="pvcType" onchange="setPVCConstant();calculate();">
+<option value="1.38">Normal</option>
+<option value="1.42">FR</option>
+<option value="1.45">FRLS</option>
+<option value="1.50">RP</option>
+<option value="1.55">Heavy RP</option>
+<option value="custom">Custom</option>
+</select>
+
+<label>Number of Cores</label>
+<input type="number" id="cores" value="1" oninput="calculate()">
+
+<label>Length (meters)</label>
+<input type="number" id="length" value="100" oninput="calculate()">
+</div>
+
+<div id="metalSection" class="card"></div>
+
+<div class="card">
+<label>Overall OD (mm)</label>
+<input type="number" id="od" value="4" oninput="calculate()">
+
+<label>PVC Constant (Kp)</label>
+<input type="number" id="kp" value="1.5" oninput="calculate()">
+
+<label>Inner PVC %</label>
+<input type="number" id="innerPercent" value="75" oninput="calculate()">
+
+<label>Outer PVC %</label>
+<input type="number" id="outerPercent" value="25" oninput="calculate()">
+
+<label>Waste %</label>
+<input type="number" id="waste" value="2" oninput="calculate()">
+</div>
+
+<div class="card">
+<h3>Rates</h3>
+<div id="rateSection"></div>
+<label>Inner PVC Rate</label>
+<input type="number" id="innerRate" value="25" oninput="calculate()">
+<label>Outer PVC Rate</label>
+<input type="number" id="outerRate" value="95" oninput="calculate()">
+</div>
+
+<div class="card">
+<h3>Results</h3>
+<div id="results"></div>
+</div>
+
+<button onclick="saveItem()">Save Design</button>
+
+</div>
+
+<!-- ================= REVERSE TAB ================= -->
+
+<div id="reverse" class="section hidden">
+<div class="card">
+<label>PVC Weight (grams)</label>
+<input type="number" id="revWeight">
+<label>OD (mm)</label>
+<input type="number" id="revOD">
+<label>Length (meters)</label>
+<input type="number" id="revLength">
+<button onclick="reverseCalc()">Calculate Required Kp</button>
+<div id="revResult"></div>
+</div>
+</div>
+
+<!-- ================= SAVED TAB ================= -->
+
+<div id="saved" class="section hidden">
+<div id="savedList"></div>
+<button onclick="clearSaved()">Clear All</button>
+</div>
+
+<script>
+
+function showTab(tab){
+document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+event.target.classList.add('active');
+document.getElementById('calc').classList.add('hidden');
+document.getElementById('reverse').classList.add('hidden');
+document.getElementById('saved').classList.add('hidden');
+document.getElementById(tab).classList.remove('hidden');
+loadSaved();
+}
+
+function setPVCConstant(){
+if(pvcType.value !== "custom"){
+kp.value = pvcType.value;
+}
+}
+
+function updateMetalUI(){
+let type = metalType.value;
+let html = "";
+let rateHTML = "";
+
+function metalBlock(name, km){
+html += `<h3>${name}</h3>
+<label>Strands/Core</label>
+<input type="number" id="${name}Strands" value="0" oninput="calculate()">
+<label>${name} Dia (mm)</label>
+<input type="number" id="${name}Dia" value="0.1" oninput="calculate()">
+<label>${name} Km</label>
+<input type="number" id="${name}Km" value="${km}" oninput="calculate()">`;
+rateHTML += `<label>${name} Rate</label>
+<input type="number" id="${name}Rate" value="0" oninput="calculate()">`;
+}
+
+if(type.includes("Copper")) metalBlock("Copper",7.03);
+if(type.includes("Aluminium")) metalBlock("Aluminium",2.13);
+if(type.includes("CCS")) metalBlock("CCS",6.16);
+if(type.includes("CCI")) metalBlock("CCI",4.50);
+
+metalSection.innerHTML = html;
+rateSection.innerHTML = rateHTML;
+calculate();
+}
+
+function calculate(){
+let length = +document.getElementById('length').value || 0;
+let cores = +document.getElementById('cores').value || 0;
+let metalWeight = 0;
+let metalCost = 0;
+
+["Copper","Aluminium","CCS","CCI"].forEach(m=>{
+let strands = document.getElementById(m+"Strands");
+if(strands){
+let s = +strands.value||0;
+let d = +document.getElementById(m+"Dia").value||0;
+let km = +document.getElementById(m+"Km").value||0;
+let rate = +document.getElementById(m+"Rate").value||0;
+let w = km*s*d*d*length*cores;
+metalWeight += w;
+metalCost += (w/1000)*rate;
+}
+});
+
+let kpVal = +kp.value||0;
+let odVal = +od.value||0;
+let pvcWeight = kpVal*odVal*odVal*length;
+let innerW = pvcWeight*(innerPercent.value/100);
+let outerW = pvcWeight*(outerPercent.value/100);
+
+let innerCost = (innerW/1000)*(innerRate.value||0);
+let outerCost = (outerW/1000)*(outerRate.value||0);
+
+let totalMaterial = metalCost+innerCost+outerCost;
+let finalCost = totalMaterial*(1+(waste.value||0)/100);
+let finalWeight = (metalWeight+pvcWeight)*(1+(waste.value||0)/100);
+
+results.innerHTML = `
+Metal Weight: ${metalWeight.toFixed(2)} g<br>
+PVC Weight: ${pvcWeight.toFixed(2)} g<br>
+Final Weight: ${finalWeight.toFixed(2)} g<br><br>
+Metal Cost: ₹${metalCost.toFixed(2)}<br>
+Inner PVC Cost: ₹${innerCost.toFixed(2)}<br>
+Outer PVC Cost: ₹${outerCost.toFixed(2)}<br>
+Total Cost: ₹${finalCost.toFixed(2)}
+`;
+}
+
+function reverseCalc(){
+let w = +revWeight.value||0;
+let od = +revOD.value||0;
+let len = +revLength.value||0;
+let kp = w/(od*od*len);
+revResult.innerHTML = "Required Kp: "+kp.toFixed(4);
+}
+
+function saveItem(){
+let name = prompt("Enter Design Name:");
+if(!name) return;
+let data = {
+name,
+html:results.innerHTML,
+inputs:document.getElementById('calc').innerHTML
+};
+let arr = JSON.parse(localStorage.getItem("wireSaves")||"[]");
+arr.push(data);
+localStorage.setItem("wireSaves",JSON.stringify(arr));
+alert("Saved!");
+}
+
+function loadSaved(){
+let arr = JSON.parse(localStorage.getItem("wireSaves")||"[]");
+savedList.innerHTML="";
+arr.forEach((item,i)=>{
+savedList.innerHTML+=`
+<div class="saved-item">
+<b>${item.name}</b><br>
+${item.html}
+<button onclick="deleteSaved(${i})">Delete</button>
+</div>`;
+});
+}
+
+function deleteSaved(i){
+let arr = JSON.parse(localStorage.getItem("wireSaves")||"[]");
+arr.splice(i,1);
+localStorage.setItem("wireSaves",JSON.stringify(arr));
+loadSaved();
+}
+
+function clearSaved(){
+localStorage.removeItem("wireSaves");
+loadSaved();
+}
+
+updateMetalUI();
+
+</script>
+</body>
+</html>
