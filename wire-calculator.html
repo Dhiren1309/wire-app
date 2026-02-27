@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wire Calculator Personal</title>
+
+<style>
+body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+    background:#111;
+    color:#fff;
+}
+.header{
+    background:#000;
+    padding:15px;
+    text-align:center;
+    font-size:18px;
+    font-weight:bold;
+    color:#f5a623;
+}
+.container{ padding:15px; }
+.card{
+    background:#1a1a1a;
+    padding:15px;
+    border-radius:12px;
+    margin-bottom:15px;
+}
+label{
+    font-size:12px;
+    color:#aaa;
+    margin-top:8px;
+    display:block;
+}
+input{
+    width:100%;
+    padding:9px;
+    border-radius:8px;
+    border:1px solid #333;
+    background:#000;
+    color:#fff;
+    font-size:14px;
+}
+button{
+    width:100%;
+    padding:12px;
+    background:#f5a623;
+    border:none;
+    border-radius:10px;
+    font-size:14px;
+    margin-top:10px;
+}
+.result{
+    background:#000;
+    padding:10px;
+    border-radius:8px;
+    margin-top:10px;
+    font-size:14px;
+}
+.history-item{
+    background:#000;
+    padding:10px;
+    border-radius:8px;
+    margin-bottom:8px;
+    font-size:13px;
+    cursor:pointer;
+    border:1px solid #333;
+}
+.small-btn{
+    background:#333;
+    margin-top:6px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">⚡ Wire Calculator – Personal</div>
+
+<div class="container">
+
+<div class="card">
+
+<label>Number of Cores</label>
+<input id="cores" type="number" value="1">
+
+<label>Length (meters)</label>
+<input id="length" type="number" value="100">
+
+<h4>--- COPPER ---</h4>
+<label>Cu Strands/Core</label>
+<input id="cu_strands" type="number" value="7">
+
+<label>Cu Strand Dia (mm)</label>
+<input id="cu_dia" type="number" step="0.001" value="0.711">
+
+<label>Cu Km</label>
+<input id="cu_km" type="number" value="7.03">
+
+<h4>--- CCS ---</h4>
+<label>CCS Strands/Core</label>
+<input id="ccs_strands" type="number" value="0">
+
+<label>CCS Strand Dia (mm)</label>
+<input id="ccs_dia" type="number" step="0.001" value="0.120">
+
+<label>CCS Km</label>
+<input id="ccs_km" type="number" value="6.16">
+
+<h4>--- CCI ---</h4>
+<label>CCI Strands/Core</label>
+<input id="cci_strands" type="number" value="0">
+
+<label>CCI Strand Dia (mm)</label>
+<input id="cci_dia" type="number" step="0.001" value="0.120">
+
+<label>CCI Km</label>
+<input id="cci_km" type="number" value="4.50">
+
+<h4>--- PVC ---</h4>
+
+<label>Overall OD (mm)</label>
+<input id="od" type="number" value="4.7">
+
+<label>PVC Kp</label>
+<input id="kp" type="number" value="1.5">
+
+<label>Waste %</label>
+<input id="waste" type="number" value="2">
+
+<div class="result" id="result"></div>
+
+<button onclick="saveCalculation()">Save</button>
+<button class="small-btn" onclick="clearHistory()">Clear History</button>
+
+</div>
+
+<div class="card">
+<b>Saved Items (Tap to Load)</b>
+<div id="history"></div>
+</div>
+
+</div>
+
+<script>
+
+function metalWeight(strands,dia,km,length,cores){
+    return km * strands * Math.pow(dia,2) * length * cores / 1000;
+}
+
+function calculate(){
+
+let cores=parseFloat(cores.value)||0;
+let length=parseFloat(length.value)||0;
+
+let cu_w=metalWeight(
+parseFloat(cu_strands.value)||0,
+parseFloat(cu_dia.value)||0,
+parseFloat(cu_km.value)||0,
+length,cores);
+
+let ccs_w=metalWeight(
+parseFloat(ccs_strands.value)||0,
+parseFloat(ccs_dia.value)||0,
+parseFloat(ccs_km.value)||0,
+length,cores);
+
+let cci_w=metalWeight(
+parseFloat(cci_strands.value)||0,
+parseFloat(cci_dia.value)||0,
+parseFloat(cci_km.value)||0,
+length,cores);
+
+let total_metal=cu_w+ccs_w+cci_w;
+
+let pvc_total=(parseFloat(kp.value)||0)*
+Math.pow(parseFloat(od.value)||0,2)*length/1000;
+
+let final_weight=(total_metal+pvc_total)*
+(1+(parseFloat(waste.value)||0)/100);
+
+document.getElementById("result").innerHTML=
+"Final Weight: "+final_weight.toFixed(3)+" kg";
+
+return {
+cores,length,
+cu_strands:cu_strands.value,
+ccs_strands:ccs_strands.value,
+cci_strands:cci_strands.value,
+cu_dia:cu_dia.value,
+ccs_dia:ccs_dia.value,
+cci_dia:cci_dia.value,
+cu_km:cu_km.value,
+ccs_km:ccs_km.value,
+cci_km:cci_km.value,
+od:od.value,
+kp:kp.value,
+waste:waste.value,
+final_weight:final_weight.toFixed(3)
+};
+
+}
+
+// AUTO CALCULATE
+document.querySelectorAll("input").forEach(input=>{
+input.addEventListener("input",calculate);
+});
+
+function saveCalculation(){
+
+let name=prompt("Enter Name:");
+if(!name)return;
+
+let data=calculate();
+data.name=name;
+
+let history=JSON.parse(localStorage.getItem("history")||"[]");
+history.unshift(data);
+
+localStorage.setItem("history",JSON.stringify(history));
+renderHistory();
+}
+
+function renderHistory(){
+
+let history=JSON.parse(localStorage.getItem("history")||"[]");
+let container=document.getElementById("history");
+container.innerHTML="";
+
+history.forEach((item,index)=>{
+
+let div=document.createElement("div");
+div.className="history-item";
+
+let totalStrands=
+parseInt(item.cu_strands||0)+
+parseInt(item.ccs_strands||0)+
+parseInt(item.cci_strands||0);
+
+div.innerHTML=
+"<b>"+item.name+"</b><br>"+
+"Cores: "+item.cores+
+" | Strands: "+totalStrands+
+"<br>Dia(mm): Cu "+item.cu_dia+
+", CCS "+item.ccs_dia+
+", CCI "+item.cci_dia+
+"<br>OD: "+item.od+
+"<br>Weight: "+item.final_weight+" kg";
+
+div.onclick=function(){ loadItem(index); };
+
+container.appendChild(div);
+
+});
+}
+
+function loadItem(index){
+
+let history=JSON.parse(localStorage.getItem("history")||"[]");
+let item=history[index];
+
+cores.value=item.cores;
+length.value=item.length;
+cu_strands.value=item.cu_strands;
+ccs_strands.value=item.ccs_strands;
+cci_strands.value=item.cci_strands;
+cu_dia.value=item.cu_dia;
+ccs_dia.value=item.ccs_dia;
+cci_dia.value=item.cci_dia;
+cu_km.value=item.cu_km;
+ccs_km.value=item.ccs_km;
+cci_km.value=item.cci_km;
+od.value=item.od;
+kp.value=item.kp;
+waste.value=item.waste;
+
+calculate();
+}
+
+function clearHistory(){
+localStorage.removeItem("history");
+renderHistory();
+}
+
+window.onload=function(){
+renderHistory();
+calculate();
+};
+
+</script>
+
+</body>
+</html>
